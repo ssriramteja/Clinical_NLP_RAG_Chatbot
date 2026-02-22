@@ -1,99 +1,82 @@
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 
-# ── System Prompt ─────────────────────────────────────────────────────────────
-# This defines the LLM's persona and strict behavior rules
-CLINICAL_SYSTEM_PROMPT = """You are ClinicalBot, an AI assistant specialized in 
-analyzing clinical notes and patient records.
+CLINICAL_SYSTEM_PROMPT = """You are ClinicalBot, an AI decision-support assistant designed for clinical chart review.
 
-STRICT RULES:
-1. Answer ONLY based on the provided clinical context below.
-2. If the answer is NOT in the context, say: 
-   "I don't have enough information in the provided records to answer that."
-3. NEVER fabricate patient data, diagnoses, or medical facts.
-4. Always cite the Patient ID (e.g., P001) when referencing a specific patient.
-5. For HIGH risk patients, explicitly highlight the risk level.
-6. You are a decision-support tool — always recommend physician verification.
+SYSTEM DIRECTIVES:
+1. Base your responses EXCLUSIVELY on the provided clinical context.
+2. If the context lacks sufficient information, state: "Insufficient information in the provided records."
+3. Under no circumstances should you extrapolate, confabulate, or synthesize medical data not present in the context.
+4. Reference specific Patient IDs (e.g., P001) for traceability.
+5. Explicitly flag HIGH risk patients.
+6. Append a disclaimer recommending physician verification for all clinical decisions.
 
-CONTEXT FROM CLINICAL RECORDS:
+CLINICAL CONTEXT:
 {context}
 """
 
-# ── General Clinical Q&A Prompt ───────────────────────────────────────────────
 CLINICAL_QA_PROMPT = ChatPromptTemplate.from_messages([
     SystemMessagePromptTemplate.from_template(CLINICAL_SYSTEM_PROMPT),
     HumanMessagePromptTemplate.from_template(
-        "Clinical Question: {question}\n\nProvide a concise, accurate answer:"
+        "Query: {question}\n\nProvide a concise and accurate response based on the clinical context."
     )
 ])
 
-# ── Risk Assessment Prompt ────────────────────────────────────────────────────
-# Specialized prompt for triaging and risk evaluation
 RISK_ASSESSMENT_PROMPT = ChatPromptTemplate.from_messages([
     SystemMessagePromptTemplate.from_template(CLINICAL_SYSTEM_PROMPT),
     HumanMessagePromptTemplate.from_template(
-        """Perform a risk assessment for the following query: {question}
+        """Execute a patient risk stratification based on the following query: {question}
 
-        Structure your response as:
-        🔴 HIGH RISK PATIENTS: [list patient IDs and primary concern]
-        🟡 MEDIUM RISK PATIENTS: [list patient IDs and primary concern]
-        🟢 LOW RISK PATIENTS: [list patient IDs and primary concern]
+        Format output as follows:
+        HIGH RISK PATIENTS: [Patient IDs and primary concern]
+        MEDIUM RISK PATIENTS: [Patient IDs and primary concern]
+        LOW RISK PATIENTS: [Patient IDs and primary concern]
         
-        RECOMMENDATION: [immediate action required?]
+        CLINICAL RECOMMENDATION: [Suggested immediate actions]
         """
     )
 ])
 
-# ── Patient Summary Prompt ────────────────────────────────────────────────────
-# Specialized prompt to summarize a specific patient
 PATIENT_SUMMARY_PROMPT = ChatPromptTemplate.from_messages([
     SystemMessagePromptTemplate.from_template(CLINICAL_SYSTEM_PROMPT),
     HumanMessagePromptTemplate.from_template(
-        """Summarize the clinical details for: {question}
+        """Synthesize clinical details for: {question}
 
-        Structure your response as:
-        📋 PATIENT: [ID]
-        🩺 CHIEF COMPLAINT: 
-        📊 VITALS: [key abnormals only]
-        🔍 ASSESSMENT: 
-        💊 PLAN: [key interventions]
-        ⚠️  RISK LEVEL: 
+        Format output:
+        PATIENT ID: [ID]
+        CHIEF COMPLAINT: [Complaint]
+        VITALS: [Significant abnormals]
+        ASSESSMENT: [Key findings]
+        PLAN: [Interventions]
+        RISK LEVEL: [Stratification]
         """
     )
 ])
 
-# ── Drug / Treatment Prompt ───────────────────────────────────────────────────
 TREATMENT_PROMPT = ChatPromptTemplate.from_messages([
     SystemMessagePromptTemplate.from_template(CLINICAL_SYSTEM_PROMPT),
     HumanMessagePromptTemplate.from_template(
-        """Based on the clinical records, answer this treatment question: {question}
+        """Review the clinical records and detail the treatment plan regarding: {question}
 
-        List:
-        - Medications prescribed (with dosages if available)
-        - Procedures ordered
-        - Consults requested
-        - Follow-up actions
-        
-        ⚠️ Reminder: This is AI-assisted decision support. Always verify with attending physician.
+        Include:
+        - Medications (with dosages)
+        - Procedures
+        - Consultations
+        - Follow-up directives
         """
     )
 ])
 
-
-# ── Prompt selector utility ───────────────────────────────────────────────────
 def get_prompt_for_query(question: str) -> ChatPromptTemplate:
-    """
-    Automatically selects the best prompt template based on
-    keywords in the user's question.
-    """
-    q = question.lower()
+    """Dynamically route queries to the most appropriate prompt template."""
+    q_lower = question.lower()
 
-    if any(w in q for w in ["risk", "triage", "urgent", "critical", "priority"]):
+    if any(keyword in q_lower for keyword in ["risk", "triage", "urgent", "critical", "priority"]):
         return RISK_ASSESSMENT_PROMPT
 
-    if any(w in q for w in ["summarize", "summary", "overview", "tell me about patient"]):
+    if any(keyword in q_lower for keyword in ["summarize", "summary", "overview", "patient"]):
         return PATIENT_SUMMARY_PROMPT
 
-    if any(w in q for w in ["medication", "drug", "treatment", "prescribed", "plan", "dosage"]):
+    if any(keyword in q_lower for keyword in ["medication", "drug", "treatment", "prescribed", "plan", "dosage"]):
         return TREATMENT_PROMPT
 
-    return CLINICAL_QA_PROMPT   # default
+    return CLINICAL_QA_PROMPT
