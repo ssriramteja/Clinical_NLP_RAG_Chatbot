@@ -1,4 +1,8 @@
 #!/bin/bash
+# Generate the FAISS index
+echo "Building FAISS Index..."
+python src/indexer.py
+
 # Start the FastAPI backend in the background
 uvicorn app.main:app --host 0.0.0.0 --port 8000 &
 
