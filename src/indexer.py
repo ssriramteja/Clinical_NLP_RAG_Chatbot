@@ -14,8 +14,9 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-DATA_PATH = Path("data/sample_clinical_notes.txt")
-INDEX_PATH = Path("faiss_index")
+ROOT_DIR = Path(__file__).parent.parent
+DATA_PATH = ROOT_DIR / "data" / "sample_clinical_notes.txt"
+INDEX_PATH = ROOT_DIR / "faiss_index"
 EMBED_MODEL = "emilyalsentzer/Bio_ClinicalBERT"
 
 

@@ -14,7 +14,20 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+def get_api_key():
+    """Retrieve API key from Streamlit secrets or environment variables."""
+    # Try Streamlit Secrets first
+    try:
+        import streamlit as st
+        if "GROQ_API_KEY" in st.secrets:
+            return st.secrets["GROQ_API_KEY"]
+    except Exception:
+        pass
+    
+    # Fallback to .env / os.environ
+    return os.getenv("GROQ_API_KEY")
+
+GROQ_API_KEY = get_api_key()
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
 
